@@ -1,0 +1,11 @@
+{
+  "name": "calculate-moyen",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Calculate Moyen, packaged as an Android app",
+  "dependencies": {
+    "@capacitor/android": "^6.1.0",
+    "@capacitor/cli": "^6.1.0",
+    "@capacitor/core": "^6.1.0"
+  }
+}

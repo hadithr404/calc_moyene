@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calculate Moyen</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* reset */
+html { color-scheme: light; -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+/* Layout: one-column phone app. Sticky header, year bar, one card per subject, fixed average bar.
+   Saved years open in a bottom sheet. Indigo accent on cool navy/slate neutrals; green/red only for pass/fail at 10/20. */
+:root {
+  --bg: #f3f5fb;
+  --surface: #ffffff;
+  --field: #eef1f9;
+  --line: #d9dfef;
+  --fg: #131a33;
+  --muted: #5b6585;
+  --accent: #4f46e5;
+  --accent-fg: #ffffff;
+  --accent-text: #4338ca;
+  --ok: #0b7f57;
+  --ok-bg: #dcf5ea;
+  --bad: #c42a42;
+  --bad-bg: #fde3e8;
+  --note-bg: #e8e7ff;
+  --note-fg: #3730a3;
+  --toast-act: #b9bcff;
+  --scrim: rgba(8, 12, 28, .5);
+  --shadow: 0 1px 2px rgba(19, 26, 51, .06), 0 8px 24px rgba(19, 26, 51, .07);
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1122;
+    --surface: #141c35;
+    --field: #0d1429;
+    --line: #25304f;
+    --fg: #e7ebf8;
+    --muted: #93a0c2;
+    --accent: #5b5fe8;
+    --accent-fg: #ffffff;
+    --accent-text: #a9adff;
+    --ok: #3ddba0;
+    --ok-bg: #0f3a2d;
+    --bad: #ff8397;
+    --bad-bg: #3e1b26;
+    --note-bg: #1b2150;
+    --note-fg: #c3c6ff;
+    --toast-act: #4338ca;
+    --scrim: rgba(3, 6, 16, .65);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1122;
+  --surface: #141c35;
+  --field: #0d1429;
+  --line: #25304f;
+  --fg: #e7ebf8;
+  --muted: #93a0c2;
+  --accent: #5b5fe8;
+  --accent-fg: #ffffff;
+  --accent-text: #a9adff;
+  --ok: #3ddba0;
+  --ok-bg: #0f3a2d;
+  --bad: #ff8397;
+  --bad-bg: #3e1b26;
+  --note-bg: #1b2150;
+  --note-fg: #c3c6ff;
+  --toast-act: #4338ca;
+  --scrim: rgba(3, 6, 16, .65);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.4;
+}
+*, *::before, *::after { box-sizing: border-box; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; touch-action: manipulation; }
+:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+
+.app { max-width: 640px; margin: 0 auto; padding-inline: 16px; padding-block: 0 168px; }
+
+/* header */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-block: 14px 10px; background: var(--bg);
+}
+h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: -.01em; text-wrap: balance; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid transparent;
+  font-weight: 600; font-size: 15px; white-space: nowrap;
+}
+.btn.primary { background: var(--accent); color: var(--accent-fg); }
+.btn.primary:disabled { opacity: .6; cursor: default; }
+.btn.ghost { background: var(--surface); border-color: var(--line); color: var(--fg); }
+.btn svg { width: 18px; height: 18px; }
+.count {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-fg); font-size: 12px; font-weight: 600;
+  display: inline-grid; place-items: center;
+}
+
+/* year bar */
+.yearbar { display: grid; gap: 8px; margin-top: 4px; }
+.yearbar .row { display: flex; gap: 8px; }
+.yearbar input { flex: 1; min-width: 0; }
+.hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+
+/* shared field styles */
+input {
+  width: 100%; min-width: 0; height: 44px; padding: 0 12px;
+  background: var(--field); border: 1px solid var(--line); border-radius: 10px;
+  font-size: 16px; font-variant-numeric: tabular-nums;
+}
+input::placeholder { color: var(--muted); opacity: .7; }
+input.invalid { border-color: var(--bad); }
+.fld { display: grid; gap: 4px; min-width: 0; }
+.fld > span { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+.note {
+  margin: 14px 0 0; padding: 10px 14px; border-radius: 12px;
+  background: var(--note-bg); color: var(--note-fg); font-size: 13.5px;
+}
+.legend { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 10px; }
+.legend span { font-size: 13px; color: var(--muted); min-width: 0; }
+.link { background: none; border: 0; min-height: 36px; padding: 0 4px; color: var(--accent-text); font-weight: 600; white-space: nowrap; }
+
+/* subject cards */
+#list { display: grid; gap: 12px; }
+#list:empty::before { content: "No subjects yet. Tap Add subject."; padding: 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); }
+.card .top2 { display: grid; grid-template-columns: minmax(0, 1fr) 76px 44px; gap: 8px; align-items: end; }
+.grades { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.grades input { text-align: center; padding: 0 4px; }
+@media (max-width: 340px) { .grades { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.res { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.res > span { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.badge {
+  min-width: 76px; padding: 6px 14px; border-radius: 999px; text-align: center;
+  background: var(--field); color: var(--muted);
+  font-family: var(--font-display); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums;
+}
+.badge.ok { background: var(--ok-bg); color: var(--ok); }
+.badge.bad { background: var(--bad-bg); color: var(--bad); }
+
+.x {
+  width: 44px; height: 44px; flex: none; display: grid; place-items: center;
+  border: 0; border-radius: 10px; background: var(--field); color: var(--muted);
+}
+.x svg { width: 18px; height: 18px; }
+.x:hover { color: var(--bad); }
+.x.confirm { width: auto; padding: 0 14px; background: var(--bad); color: #fff; font-weight: 600; }
+
+.add {
+  width: 100%; min-height: 52px; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: none; border: 1.5px dashed var(--line); border-radius: 16px; color: var(--accent-text); font-weight: 600;
+}
+.add svg { width: 18px; height: 18px; }
+
+/* average bar */
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+.bar-in { max-width: 640px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bar-l { display: grid; min-width: 0; }
+.bar-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.bar-note { font-size: 13px; color: var(--muted); }
+.bar-r { display: flex; align-items: baseline; gap: 4px; flex: none; }
+.avg { font-family: var(--font-display); font-weight: 700; font-size: 38px; line-height: 1; font-variant-numeric: tabular-nums; }
+.avg.ok { color: var(--ok); }
+.avg.bad { color: var(--bad); }
+.of { color: var(--muted); font-weight: 600; }
+
+/* years sheet */
+.scrim { position: fixed; inset: 0; z-index: 20; background: var(--scrim); }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; max-width: 640px; margin-inline: auto;
+  max-height: 80%; overflow-y: auto; background: var(--surface); border-radius: 20px 20px 0 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px)); box-shadow: var(--shadow);
+  animation: up .18s ease-out;
+}
+@keyframes up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+h2 { margin: 0; font-family: var(--font-display); font-size: 20px; }
+#sheetList { display: grid; gap: 8px; }
+.yrow { display: flex; gap: 8px; }
+.yopen {
+  flex: 1; min-width: 0; display: grid; gap: 2px; text-align: left; padding: 10px 14px; min-height: 56px;
+  background: var(--field); border: 1px solid var(--line); border-radius: 12px;
+}
+.yopen b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.yopen span { font-size: 12.5px; color: var(--muted); }
+.yrow .x { height: auto; min-height: 56px; }
+.empty { margin: 8px 0; padding: 20px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 14px; }
+
+/* toast */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 30;
+  bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; gap: 14px; max-width: calc(100% - 32px);
+  padding: 12px 16px; border-radius: 12px; background: var(--fg); color: var(--bg); font-weight: 500;
+}
+.toast button { background: none; border: 0; padding: 4px 0; color: var(--toast-act); font-weight: 700; }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>Calculate Moyen</h1>
+    <button type="button" class="btn ghost" id="yearsBtn" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      Years <span class="count" id="count" hidden></span>
+    </button>
+  </header>
+
+  <section class="yearbar" aria-label="Save this year">
+    <div class="row">
+      <input id="yearName" type="text" placeholder="Year name, e.g. L2 S1" maxlength="30" autocomplete="off" enterkeyhint="done" aria-label="Year name">
+      <button type="button" class="btn primary" id="saveBtn">Save</button>
+    </div>
+    <p class="hint" id="status"></p>
+  </section>
+
+  <p class="note" id="example" hidden>Example subjects. Edit them or tap Clear all to start fresh.</p>
+
+  <div class="legend">
+    <span>Grades out of 20. Leave Int or TP empty when a subject has none.</span>
+    <button type="button" class="link" id="clearBtn">Clear all</button>
+  </div>
+
+  <div id="list"></div>
+
+  <button type="button" class="add" id="addBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    Add subject
+  </button>
+</div>
+
+<footer class="bar">
+  <div class="bar-in">
+    <div class="bar-l">
+      <span class="bar-label">Average</span>
+      <span class="bar-note" id="note"></span>
+    </div>
+    <div class="bar-r"><output class="avg" id="avg">—</output><span class="of">/20</span></div>
+  </div>
+</footer>
+
+<div class="scrim" id="scrim" hidden></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+  <div class="sheet-head">
+    <h2 id="sheetTitle">Saved years</h2>
+    <button type="button" class="x" id="closeBtn" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div id="sheetList"></div>
+</section>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  const listEl = $('#list'), nameEl = $('#yearName'), saveBtn = $('#saveBtn'), statusEl = $('#status');
+  const exampleEl = $('#example'), clearBtn = $('#clearBtn'), addBtn = $('#addBtn');
+  const avgEl = $('#avg'), noteEl = $('#note'), yearsBtn = $('#yearsBtn'), countEl = $('#count');
+  const scrim = $('#scrim'), sheet = $('#sheet'), sheetList = $('#sheetList'), closeBtn = $('#closeBtn'), toastEl = $('#toast');
+
+  const FIELDS = ['subject', 'coef', 'examen', 'devoir', 'int', 'tp'];
+  const ICON_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const newRow = (o = {}) => {
+    const r = { id: o.id || uid() };
+    FIELDS.forEach((f) => { r[f] = String(o[f] == null ? '' : o[f]); });
+    return r;
+  };
+
+  const EXAMPLES = [
+    { subject: 'Mathématiques', coef: '4', examen: '14', devoir: '12' },
+    { subject: 'Physique', coef: '3', examen: '11', devoir: '13', int: '10', tp: '15' },
+    { subject: 'Anglais', coef: '1', examen: '16', devoir: '17' }
+  ];
+
+  /* ---------- state ---------- */
+  let rows = null, yearName = '', exampleMode = false, loadedYear = null;
+  try {
+    const d = JSON.parse(localStorage.getItem('moyen:draft') || 'null');
+    if (d && Array.isArray(d.rows) && d.rows.length) {
+      rows = d.rows.map(newRow);
+      yearName = typeof d.name === 'string' ? d.name : '';
+    }
+  } catch (e) { /* storage unavailable: start from the examples */ }
+  if (!rows) { rows = EXAMPLES.map(newRow); exampleMode = true; }
+
+  let draftTimer;
+  function saveDraft() {
+    if (exampleMode) return;
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(() => {
+      try { localStorage.setItem('moyen:draft', JSON.stringify({ name: yearName, rows })); } catch (e) { /* ignore */ }
+    }, 300);
+  }
+  function hideExample() { exampleMode = false; exampleEl.hidden = true; }
+
+  /* ---------- the calculation (same formulas as the desktop app) ---------- */
+  const num = (s) => {
+    const t = String(s == null ? '' : s).trim().replace(',', '.');
+    if (t === '' || t === '/') return null;
+    const v = Number(t);
+    return Number.isFinite(v) ? v : NaN;
+  };
+  function calcRow(r) {
+    const coef = num(r.coef), ex = num(r.examen), dv = num(r.devoir), it = num(r.int), tp = num(r.tp);
+    if ([coef, ex, dv, it, tp].some(Number.isNaN)) return null;
+    if (coef === null || coef <= 0 || ex === null || dv === null) return null;
+    const dev = it === null ? dv : (2 * dv + it) / 3;
+    const res = tp === null ? (2 * ex + dev) / 3 : (2 * ex + dev + tp) / 4;
+    return { coef, res };
+  }
+
+  /* ---------- subject list ---------- */
+  function grade(label, f, v) {
+    return '<label class="fld"><span>' + label + '</span><input data-f="' + f + '" value="' + esc(v) +
+      '" inputmode="decimal" placeholder="' + (f === 'int' || f === 'tp' ? '—' : '/20') +
+      '" autocomplete="off" enterkeyhint="next"></label>';
+  }
+  function cardHTML(r) {
+    return '<article class="card" data-id="' + r.id + '">' +
+      '<div class="top2">' +
+        '<label class="fld"><span>Subject</span><input data-f="subject" value="' + esc(r.subject) + '" placeholder="Subject" maxlength="40" autocomplete="off" enterkeyhint="next"></label>' +
+        '<label class="fld"><span>Coef</span><input data-f="coef" value="' + esc(r.coef) + '" inputmode="decimal" placeholder="1" autocomplete="off" enterkeyhint="next"></label>' +
+        '<button type="button" class="x" data-act="del" aria-label="Delete subject">' + ICON_X + '</button>' +
+      '</div>' +
+      '<div class="grades">' +
+        grade('Examen', 'examen', r.examen) + grade('Devoir', 'devoir', r.devoir) +
+        grade('Int', 'int', r.int) + grade('TP', 'tp', r.tp) +
+      '</div>' +
+      '<div class="res"><span>Result</span><b class="badge" data-res>—</b></div>' +
+    '</article>';
+  }
+  function renderList() {
+    listEl.innerHTML = rows.map(cardHTML).join('');
+    updateResults();
+  }
+  function updateResults() {
+    let c = 0, m = 0, n = 0, skipped = 0;
+    rows.forEach((r) => {
+      const el = listEl.querySelector('[data-id="' + r.id + '"]');
+      const out = calcRow(r);
+      const touched = [r.subject, r.examen, r.devoir, r.int, r.tp].some((s) => s.trim() !== '');
+      if (out) { c += out.coef; m += out.coef * out.res; n++; }
+      else if (touched) skipped++;
+      if (!el) return;
+      const b = el.querySelector('[data-res]');
+      b.textContent = out ? out.res.toFixed(2) : '—';
+      b.className = 'badge' + (out ? (out.res >= 10 ? ' ok' : ' bad') : '');
+      el.querySelectorAll('input[data-f]').forEach((inp) => {
+        if (inp.dataset.f !== 'subject') inp.classList.toggle('invalid', Number.isNaN(num(inp.value)));
+      });
+    });
+    if (c > 0) {
+      const avg = m / c;
+      avgEl.textContent = avg.toFixed(2);
+      avgEl.className = 'avg ' + (avg >= 10 ? 'ok' : 'bad');
+    } else {
+      avgEl.textContent = '—';
+      avgEl.className = 'avg';
+    }
+    if (skipped) noteEl.textContent = skipped + (skipped > 1 ? ' subjects' : ' subject') + ' left out: needs Coef, Examen and Devoir';
+    else if (n) noteEl.textContent = 'Based on ' + n + (n > 1 ? ' subjects' : ' subject');
+    else noteEl.textContent = 'Fill in Coef, Examen and Devoir';
+  }
+
+  listEl.addEventListener('input', (e) => {
+    const inp = e.target.closest('input[data-f]');
+    if (!inp) return;
+    const r = rows.find((x) => x.id === inp.closest('.card').dataset.id);
+    if (!r) return;
+    r[inp.dataset.f] = inp.value;
+    if (exampleMode) hideExample();
+    updateResults();
+    saveDraft();
+  });
+  listEl.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act="del"]');
+    if (!b) return;
+    const idx = rows.findIndex((x) => x.id === b.closest('.card').dataset.id);
+    if (idx < 0) return;
+    const removed = rows.splice(idx, 1)[0];
+    if (exampleMode) hideExample();
+    renderList();
+    saveDraft();
+    toast('Subject removed', { label: 'Undo', fn: () => { rows.splice(Math.min(idx, rows.length), 0, removed); renderList(); saveDraft(); } });
+  });
+  listEl.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !e.target.matches('input')) return;
+    e.preventDefault();
+    const all = Array.from(listEl.querySelectorAll('input'));
+    const i = all.indexOf(e.target);
+    if (i < all.length - 1) all[i + 1].focus(); else e.target.blur();
+  });
+
+  addBtn.addEventListener('click', () => {
+    rows.push(newRow());
+    if (exampleMode) hideExample();
+    renderList();
+    saveDraft();
+    const el = listEl.lastElementChild;
+    if (el) {
+      el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      el.querySelector('input').focus({ preventScroll: true });
+    }
+  });
+  clearBtn.addEventListener('click', () => {
+    const old = rows;
+    rows = [newRow()];
+    loadedYear = null;
+    hideExample();
+    renderList();
+    saveDraft();
+    toast('Cleared all subjects', { label: 'Undo', fn: () => { rows = old; renderList(); saveDraft(); } });
+  });
+
+  /* ---------- saved years ---------- */
+  const LS_YEARS = 'moyen:years';
+  let cloud = null, years = [], pending = null, pendTimer;
+  function loadLocalYears() {
+    try { const v = JSON.parse(localStorage.getItem(LS_YEARS) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+  }
+  function persistLocalYears() {
+    try { localStorage.setItem(LS_YEARS, JSON.stringify(years)); return true; } catch (e) { return false; }
+  }
+  const yearId = (n) => 'y' + Array.from(n).map((ch) => /[A-Za-z0-9]/.test(ch) ? ch : '_' + ch.codePointAt(0).toString(16) + '_').join('').slice(0, 180);
+
+  async function saveYear(p) {
+    if (cloud) { await cloud.doc('years/' + yearId(p.name)).set(p); return; }
+    years = years.filter((y) => y.name !== p.name);
+    years.unshift(p);
+    if (!persistLocalYears()) throw { code: 'storage' };
+    renderSheet();
+  }
+  async function removeYear(name) {
+    if (cloud) { await cloud.doc('years/' + yearId(name)).delete(); return; }
+    years = years.filter((y) => y.name !== name);
+    persistLocalYears();
+    renderSheet();
+  }
+  const errMsg = (e) => {
+    const c = e && e.code;
+    if (c === 'invalid_argument' || c === 'not_granted' || c === 'revoked') return "This view can't save changes.";
+    if (c === 'quota_exceeded') return 'Storage is full. Delete a year and try again.';
+    if (c === 'storage') return 'This browser blocked storage, so nothing was saved.';
+    return "Couldn't save. Check your connection and try again.";
+  };
+
+  async function saveCurrent() {
+    const name = nameEl.value.trim();
+    if (!name) { toast('Name the year first'); nameEl.focus(); return; }
+    if (!rows.length) { toast('Add a subject first'); return; }
+    const payload = { name, rows: rows.map((r) => { const o = Object.assign({}, r); delete o.id; return o; }), updated: Date.now() };
+    saveBtn.disabled = true;
+    try {
+      await saveYear(payload);
+      loadedYear = name;
+      toast('Saved “' + name + '”');
+    } catch (err) {
+      toast(errMsg(err));
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }
+  saveBtn.addEventListener('click', saveCurrent);
+  nameEl.addEventListener('input', () => { yearName = nameEl.value; saveDraft(); });
+  nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveCurrent(); } });
+
+  function renderSheet() {
+    countEl.hidden = years.length === 0;
+    countEl.textContent = years.length;
+    if (!years.length) {
+      sheetList.innerHTML = '<p class="empty">No saved years yet. Name a year, add subjects and tap Save.</p>';
+      return;
+    }
+    sheetList.innerHTML = years.map((y) => {
+      const n = (y.rows || []).length;
+      const conf = pending === y.name;
+      return '<div class="yrow">' +
+        '<button type="button" class="yopen" data-open="' + esc(y.name) + '"><b>' + esc(y.name) + '</b><span>' + n + (n === 1 ? ' subject' : ' subjects') + '</span></button>' +
+        '<button type="button" class="x' + (conf ? ' confirm' : '') + '" data-del="' + esc(y.name) + '" aria-label="Delete ' + esc(y.name) + '">' + (conf ? 'Delete?' : ICON_X) + '</button>' +
+      '</div>';
+    }).join('');
+  }
+  function openYear(name) {
+    const y = years.find((v) => v.name === name);
+    if (!y) return;
+    const loaded = (y.rows || []).map(newRow);
+    rows = loaded.length ? loaded : [newRow()];
+    yearName = y.name;
+    nameEl.value = y.name;
+    loadedYear = y.name;
+    hideExample();
+    renderList();
+    saveDraft();
+    closeSheet();
+  }
+  sheetList.addEventListener('click', async (e) => {
+    const o = e.target.closest('[data-open]');
+    if (o) { openYear(o.dataset.open); return; }
+    const d = e.target.closest('[data-del]');
+    if (!d) return;
+    const name = d.dataset.del;
+    if (pending !== name) {
+      pending = name;
+      clearTimeout(pendTimer);
+      pendTimer = setTimeout(() => { pending = null; renderSheet(); }, 3000);
+      renderSheet();
+      return;
+    }
+    clearTimeout(pendTimer);
+    pending = null;
+    try {
+      await removeYear(name);
+      if (loadedYear === name) {
+        rows = [newRow()];
+        yearName = '';
+        nameEl.value = '';
+        loadedYear = null;
+        renderList();
+        saveDraft();
+      }
+      toast('Deleted “' + name + '”');
+    } catch (err) {
+      toast(errMsg(err));
+      renderSheet();
+    }
+  });
+
+  function openSheet() { renderSheet(); scrim.hidden = false; sheet.hidden = false; closeBtn.focus(); }
+  function closeSheet() { scrim.hidden = true; sheet.hidden = true; pending = null; yearsBtn.focus(); }
+  yearsBtn.addEventListener('click', openSheet);
+  closeBtn.addEventListener('click', closeSheet);
+  scrim.addEventListener('click', closeSheet);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
+
+  /* ---------- toast ---------- */
+  let toastTimer;
+  function toast(msg, act) {
+    clearTimeout(toastTimer);
+    toastEl.textContent = '';
+    const s = document.createElement('span');
+    s.textContent = msg;
+    toastEl.appendChild(s);
+    if (act) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = act.label;
+      b.addEventListener('click', () => { toastEl.hidden = true; act.fn(); });
+      toastEl.appendChild(b);
+    }
+    toastEl.hidden = false;
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, act ? 6000 : 3200);
+  }
+
+  /* ---------- storage mode ---------- */
+  function updateStatus() {
+    statusEl.textContent = cloud
+      ? 'Saved years sync across the devices where you open this page.'
+      : 'Saved years stay on this device.';
+  }
+
+  /* ---------- start ---------- */
+  nameEl.value = yearName;
+  exampleEl.hidden = !exampleMode;
+  years = loadLocalYears();
+  renderList();
+  renderSheet();
+  updateStatus();
+
+  (async () => {
+    let db = null;
+    try { db = window.claude && window.claude.use ? await window.claude.use('db') : null; } catch (e) { db = null; }
+    if (!db) return;
+    const fallBack = () => { cloud = null; years = loadLocalYears(); updateStatus(); renderSheet(); };
+    cloud = db;
+    years = [];
+    updateStatus();
+    renderSheet();
+    try {
+      db.collection('years').onSnapshot((snap) => {
+        years = snap.docs.map((d) => d.data()).filter(Boolean).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+        renderSheet();
+      }, fallBack);
+    } catch (e) { fallBack(); }
+  })();
+})();
+</script>
+</body>
+</html>
